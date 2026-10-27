@@ -335,8 +335,7 @@ body::before {
    text-shadow: 0 0 2px rgba(0, 0, 0, .75), 0 1px 10px rgba(0, 0, 0, .6);
    transition: opacity .4s var(--ease-out);
 }
-.swap-hint svg { width: 10px; height: 10px; color: #c5f24a; transform: rotate(90deg); filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
-.portrait.is-used .swap-hint { opacity: 0; }
+.swap-hint svg { width: 11px; height: 11px; color: #c5f24a; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .5)); }
 
 .swap-pill {
    position: relative;
