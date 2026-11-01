@@ -4,153 +4,265 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
-<title>Semakan Kompaun</title>
+<meta name="theme-color" content="#030806">
+<title>KARITUN // Semakan Kompaun</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f5f6f8;
-    --card: #ffffff;
-    --text: #1a1d23;
-    --muted: #6b7280;
-    --border: #e2e5ea;
-    --ok: #16a34a;
-    --ok-bg: #ecfdf3;
-    --fail: #dc2626;
-    --fail-bg: #fef2f2;
-    --accent: #2563eb;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14161a;
-      --card: #1d2026;
-      --text: #e8eaed;
-      --muted: #9aa0a8;
-      --border: #2c2f36;
-      --ok: #4ade80;
-      --ok-bg: #103822;
-      --fail: #f87171;
-      --fail-bg: #3a1616;
-      --accent: #60a5fa;
-    }
+    --bg: #030806;
+    --panel: rgba(4, 18, 11, 0.82);
+    --green: #00ff9c;
+    --green-dim: #0b8f5a;
+    --green-faint: rgba(0, 255, 156, 0.12);
+    --text: #b8ffe0;
+    --muted: #4f8f74;
+    --red: #ff3b5c;
+    --red-faint: rgba(255, 59, 92, 0.12);
+    --cyan: #3be8ff;
+    --font: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
   * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
   body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.55 var(--font);
+    padding: 20px 16px 48px;
+    overflow-x: hidden;
+  }
+
+  /* Latar: hujan matrix + scanline + vignette */
+  #matrix { position: fixed; inset: 0; z-index: -2; opacity: 0.18; }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.25) 2px 3px),
+      radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,0.85) 100%);
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+  ::selection { background: var(--green); color: var(--bg); }
+
+  /* Bar status atas */
+  .topbar {
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px;
+    font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
+    margin-bottom: 18px;
+  }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); margin-right: 6px; animation: pulse 1.6s infinite; }
+
+  /* Tajuk glitch */
+  .title {
+    position: relative;
+    font-size: clamp(34px, 9vw, 64px);
+    font-weight: 800;
+    letter-spacing: 0.12em;
     margin: 0;
-    padding: 24px 16px 48px;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-    line-height: 1.4;
+    color: var(--green);
+    text-shadow: 0 0 12px rgba(0,255,156,0.55), 0 0 32px rgba(0,255,156,0.25);
   }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  h1 { font-size: 1.35rem; margin: 0 0 4px; }
-  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px;
-    margin-bottom: 16px;
+  .title::before, .title::after {
+    content: attr(data-text);
+    position: absolute; inset: 0;
+    pointer-events: none;
+    opacity: 0;
   }
+  .title::before { color: var(--cyan); animation: glitch 3.2s infinite steps(1); clip-path: inset(0 0 60% 0); }
+  .title::after  { color: var(--red);  animation: glitch 2.7s infinite steps(1); clip-path: inset(55% 0 0 0); }
+  .tagline { color: var(--muted); margin: 4px 0 22px; font-size: 12px; letter-spacing: 0.06em; }
+  .tagline b { color: var(--green-dim); font-weight: 600; }
 
-  /* Borang carian: sebaris di PC, bertindan di telefon */
-  .search { display: flex; gap: 8px; }
-  .search input {
-    flex: 1;
-    min-width: 0;
-    padding: 14px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    border: 1px solid var(--border);
+  /* Tetingkap terminal */
+  .term {
+    background: var(--panel);
+    border: 1px solid var(--green-dim);
     border-radius: 10px;
-    background: var(--bg);
-    color: var(--text);
+    box-shadow: 0 0 0 1px rgba(0,255,156,0.05), 0 0 40px rgba(0,255,156,0.08), inset 0 0 60px rgba(0,255,156,0.03);
+    backdrop-filter: blur(3px);
+    margin-bottom: 18px;
+    overflow: hidden;
   }
-  .search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .term-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 1px solid rgba(0,255,156,0.18);
+    font-size: 12px; color: var(--muted);
+  }
+  .term-head i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .term-head i:nth-child(1) { background: #ff5f57; }
+  .term-head i:nth-child(2) { background: #febc2e; }
+  .term-head i:nth-child(3) { background: #28c840; }
+  .term-head span { margin-left: auto; }
+  .term-body { padding: 16px; }
+
+  /* Prompt carian */
+  .prompt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ps1 { color: var(--green); white-space: nowrap; }
+  .ps1 em { color: var(--cyan); font-style: normal; }
+  .field {
+    flex: 1; min-width: 180px;
+    display: flex; align-items: center;
+    border-bottom: 1px dashed var(--green-dim);
+  }
+  .field input {
+    flex: 1; min-width: 0;
+    background: transparent; border: 0; outline: 0;
+    color: #fff; caret-color: var(--green);
+    font: 800 20px var(--font);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 8px 0;
+    text-shadow: 0 0 10px rgba(0,255,156,0.5);
+  }
+  .field input::placeholder { color: #1f5a42; text-shadow: none; }
+  .field:focus-within { border-bottom-color: var(--green); box-shadow: 0 6px 14px -10px var(--green); }
+
+  .actions { display: flex; gap: 10px; margin-top: 16px; }
   button {
-    padding: 14px 20px;
-    font-size: 1rem;
-    border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: #fff;
+    font: 600 13px var(--font);
+    letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 12px 18px;
+    background: var(--green-faint);
+    color: var(--green);
+    border: 1px solid var(--green);
+    border-radius: 6px;
     cursor: pointer;
-    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
   }
-  button:disabled { opacity: 0.6; cursor: wait; }
-  button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button:hover { background: var(--green); color: var(--bg); box-shadow: 0 0 18px rgba(0,255,156,0.6); }
+  button:disabled { opacity: 0.5; cursor: wait; }
+  button.ghost { background: transparent; color: var(--muted); border-color: #1f5a42; }
+  button.ghost:hover { color: var(--green); border-color: var(--green); background: transparent; box-shadow: none; }
 
-  .error { color: var(--fail); font-size: 0.9rem; margin-top: 10px; }
-  .error:empty { display: none; }
+  /* Log terminal */
+  #log { margin-top: 16px; font-size: 12.5px; }
+  #log:empty { display: none; }
+  #log div { animation: appear 0.25s ease-out both; white-space: pre-wrap; word-break: break-word; }
+  #log .ok   { color: var(--green); }
+  #log .err  { color: var(--red); }
+  #log .info { color: var(--muted); }
+  .cursor { display: inline-block; width: 8px; height: 15px; background: var(--green); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
 
-  details { margin-top: 16px; }
-  summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+  details { margin-top: 18px; border-top: 1px dashed rgba(0,255,156,0.18); padding-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 12px; list-style: none; }
+  summary::before { content: "[+] "; color: var(--green-dim); }
+  details[open] summary::before { content: "[-] "; }
   textarea {
-    width: 100%;
-    min-height: 150px;
-    margin: 10px 0;
+    width: 100%; min-height: 150px; margin: 10px 0;
     padding: 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--bg);
-    color: var(--text);
-    font: 0.85rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    resize: vertical;
+    background: rgba(0,0,0,0.45); color: var(--text);
+    border: 1px solid #1f5a42; border-radius: 6px; outline: 0;
+    font: 12.5px var(--font); resize: vertical;
   }
+  textarea:focus { border-color: var(--green); }
 
   /* Keputusan */
-  .banner { padding: 12px 14px; border-radius: 10px; font-weight: 600; margin-bottom: 14px; }
-  .banner.ok { background: var(--ok-bg); color: var(--ok); }
-  .banner.fail { background: var(--fail-bg); color: var(--fail); }
-  .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 8px; }
-  .record { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-top: 10px; }
-  .record h3 { margin: 0 0 10px; font-size: 0.9rem; color: var(--accent); }
-  dl { display: grid; grid-template-columns: 160px 1fr; gap: 8px 12px; margin: 0; font-size: 0.92rem; }
+  .banner {
+    padding: 12px 14px; border-radius: 6px; margin-bottom: 16px;
+    font-weight: 800; letter-spacing: 0.1em;
+    border: 1px solid;
+  }
+  .banner.ok   { color: var(--green); border-color: var(--green); background: var(--green-faint); text-shadow: 0 0 10px rgba(0,255,156,0.6); }
+  .banner.fail { color: var(--red);   border-color: var(--red);   background: var(--red-faint);   text-shadow: 0 0 10px rgba(255,59,92,0.6); }
+  .section-title { color: var(--cyan); font-size: 12px; letter-spacing: 0.14em; margin: 20px 0 8px; }
+  .section-title::before { content: "## "; color: var(--muted); }
+  .record {
+    border: 1px solid rgba(0,255,156,0.25);
+    border-left: 3px solid var(--green);
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-top: 10px;
+    background: rgba(0,0,0,0.3);
+  }
+  .record h3 { margin: 0 0 10px; font-size: 12px; color: var(--green); letter-spacing: 0.12em; }
+  dl { display: grid; grid-template-columns: 180px 1fr; gap: 6px 14px; margin: 0; }
   dt { color: var(--muted); }
-  dd { margin: 0; word-break: break-word; }
+  dt::after { content: " :"; color: #1f5a42; }
+  dd { margin: 0; color: #fff; word-break: break-word; }
   pre {
-    margin: 0;
-    padding: 10px;
-    overflow-x: auto;
-    font-size: 0.82rem;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    margin: 0; padding: 12px; overflow-x: auto;
+    background: rgba(0,0,0,0.45); border: 1px solid #1f5a42; border-radius: 6px;
+    font: 12px var(--font); color: var(--text);
   }
 
-  @media (max-width: 520px) {
-    .search { flex-direction: column; }
-    button { width: 100%; }
+  footer { text-align: center; font-size: 11px; color: #1f5a42; letter-spacing: 0.1em; }
+
+  @keyframes blink  { 50% { opacity: 0; } }
+  @keyframes pulse  { 50% { opacity: 0.35; } }
+  @keyframes appear { from { opacity: 0; transform: translateX(-6px); } }
+  @keyframes glitch {
+    0%, 88%, 100% { transform: translate(0); opacity: 0; }
+    90% { transform: translate(-3px, 1px); opacity: 0.9; }
+    93% { transform: translate(3px, -1px); opacity: 0.9; }
+    96% { transform: translate(-1px, 0); opacity: 0.9; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; }
+  }
+
+  /* Telefon */
+  @media (max-width: 560px) {
+    body { padding-top: 14px; }
+    .term-body { padding: 14px; }
+    .ps1 { font-size: 12px; }
+    .field { min-width: 100%; }
+    .actions { flex-direction: column; }
+    button { width: 100%; padding: 14px; }
     dl { grid-template-columns: 1fr; gap: 0; }
-    dt { margin-top: 10px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    dt { margin-top: 10px; font-size: 11px; letter-spacing: 0.06em; }
     dt:first-child { margin-top: 0; }
-    dd { font-size: 1rem; }
+    dd { font-size: 15px; }
   }
 </style>
 </head>
 <body>
+<canvas id="matrix"></canvas>
+
 <div class="wrap">
-  <h1>Semakan Kompaun</h1>
-  <p class="sub">Masukkan no. plat dan tekan Cari.</p>
-
-  <div class="card">
-    <form class="search" id="searchForm">
-      <input id="plate" placeholder="Contoh: DEK38" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="No. Plat">
-      <button type="submit" id="searchBtn">Cari</button>
-      <button type="button" class="secondary" id="clearBtn">Kosongkan</button>
-    </form>
-    <div class="error" id="error"></div>
-
-    <details>
-      <summary>Tampal JSON secara manual</summary>
-      <textarea id="jsonInput" placeholder='{"success": true, "status": 200, "data": [...]}'></textarea>
-      <button type="button" id="jsonBtn">Papar</button>
-    </details>
+  <div class="topbar">
+    <span><span class="dot"></span>SECURE LINK // OVRS</span>
+    <span id="clock">--:--:--</span>
   </div>
 
-  <div class="card" id="result" hidden></div>
+  <h1 class="title" data-text="KARITUN">KARITUN</h1>
+  <p class="tagline"><b>&gt;</b> sistem semakan kompaun <b>v2.0</b> // masukkan no. plat untuk scan</p>
+
+  <!-- Terminal carian -->
+  <section class="term">
+    <div class="term-head"><i></i><i></i><i></i><span>root@karitun: ~</span></div>
+    <div class="term-body">
+      <form id="searchForm">
+        <div class="prompt">
+          <span class="ps1">root@karitun:<em>~</em>$ scan</span>
+          <label class="field">
+            <input id="plate" placeholder="DEK38" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="No. Plat" autofocus>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" id="searchBtn">[ Execute ]</button>
+          <button type="button" class="ghost" id="clearBtn">[ Clear ]</button>
+        </div>
+      </form>
+
+      <div id="log"></div>
+
+      <details>
+        <summary>mod manual — tampal JSON</summary>
+        <textarea id="jsonInput" placeholder='{"success": true, "status": 200, "data": [...]}'></textarea>
+        <button type="button" id="jsonBtn">[ Parse ]</button>
+      </details>
+    </div>
+  </section>
+
+  <!-- Terminal keputusan -->
+  <section class="term" id="resultTerm" hidden>
+    <div class="term-head"><i></i><i></i><i></i><span>output.log</span></div>
+    <div class="term-body" id="result"></div>
+  </section>
+
+  <footer>// karitun &copy; afiez — unauthorized access is logged</footer>
 </div>
 
 <script>
@@ -225,6 +337,7 @@ async function cariKompaun(plate) {
 // 3. HELPER
 // =====================================================================
 const $ = (id) => document.getElementById(id);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // "dek 38" -> "DEK38"
 function cleanPlate(value) {
@@ -245,25 +358,26 @@ function label(key) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-// Bina <dl> daripada objek { label: nilai }; nilai kosong diabaikan
-function fieldList(obj) {
-  const dl = document.createElement("dl");
-  for (const [key, val] of Object.entries(obj)) {
-    if (val === null || val === undefined || val === "") continue;
-    const dt = document.createElement("dt");
-    const dd = document.createElement("dd");
-    dt.textContent = key;
-    dd.textContent = typeof val === "object" ? JSON.stringify(val) : val;
-    dl.append(dt, dd);
-  }
-  return dl;
-}
-
 function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text) node.textContent = text;
   return node;
+}
+
+// Bina <dl> daripada objek { label: nilai }; nilai kosong diabaikan
+function fieldList(obj) {
+  const dl = document.createElement("dl");
+  for (const [key, val] of Object.entries(obj)) {
+    if (val === null || val === undefined || val === "") continue;
+    dl.append(el("dt", "", key), el("dd", "", typeof val === "object" ? JSON.stringify(val) : String(val)));
+  }
+  return dl;
+}
+
+// Tulis satu baris ke log terminal. type: "ok" | "err" | "info"
+function log(text, type = "info") {
+  $("log").append(el("div", type, text));
 }
 
 
@@ -277,7 +391,7 @@ function showResult(obj, plate) {
   // Banner berjaya / gagal
   const ok = obj.success === true;
   box.append(el("div", "banner " + (ok ? "ok" : "fail"),
-    (ok ? "✓ Berjaya" : "✕ Gagal") + (obj.message ? " — " + obj.message : "")));
+    (ok ? "[ ACCESS GRANTED ]" : "[ ACCESS DENIED ]") + (obj.message ? " — " + obj.message : "")));
 
   // Ringkasan
   box.append(fieldList({
@@ -291,8 +405,6 @@ function showResult(obj, plate) {
   // Data rekod
   const data = obj.data;
   if (data !== null && data !== undefined) {
-    box.append(el("div", "section-title", "Data"));
-
     let records = Array.isArray(data) ? data : Array.isArray(data.records) ? data.records : null;
 
     // Jika API pulangkan banyak plat, tapis ikut plat yang dicari
@@ -303,21 +415,23 @@ function showResult(obj, plate) {
     }
 
     if (records && records.length && typeof records[0] === "object") {
+      box.append(el("div", "section-title", "DATA // " + records.length + " rekod"));
       records.forEach((rec, i) => {
         const card = el("div", "record");
-        if (records.length > 1) card.append(el("h3", "", "Rekod " + (i + 1)));
+        card.append(el("h3", "", "> REKOD_" + String(i + 1).padStart(2, "0")));
         const fields = {};
         for (const key in rec) fields[label(key)] = rec[key];
         card.append(fieldList(fields));
         box.append(card);
       });
     } else {
+      box.append(el("div", "section-title", "RAW DATA"));
       box.append(el("pre", "", JSON.stringify(data, null, 2)));
     }
   }
 
-  box.hidden = false;
-  box.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("resultTerm").hidden = false;
+  $("resultTerm").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 
@@ -326,46 +440,93 @@ function showResult(obj, plate) {
 // =====================================================================
 $("searchForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  $("error").textContent = "";
+  $("log").innerHTML = "";
+  $("resultTerm").hidden = true;
 
   const plate = cleanPlate($("plate").value);
   if (!plate) {
-    $("error").textContent = "Sila masukkan no. plat.";
+    log("ERR: no. plat kosong. sila masukkan no. plat.", "err");
     return;
   }
 
   const btn = $("searchBtn");
   btn.disabled = true;
-  btn.textContent = "Mencari...";
+  btn.textContent = "[ Running... ]";
   try {
-    showResult(await cariKompaun(plate), plate);
+    log("> target: " + plate);
+    log("> menyambung ke " + new URL(CONFIG.baseUrl).host + " ...");
+    await getToken();
+    log("  auth token ............ OK", "ok");
+    log("> scanning pangkalan data kompaun ...");
+    await sleep(250);
+    const obj = await cariKompaun(plate);
+    log("  HTTP " + obj.status + " .............. " + (obj.success ? "OK" : "FAIL"), obj.success ? "ok" : "err");
+    log("> selesai.", "ok");
+    showResult(obj, plate);
   } catch (err) {
-    $("result").hidden = true;
-    $("error").textContent = "Gagal hubungi Drosstech: " + err.message;
+    log("ERR: " + err.message, "err");
   } finally {
     btn.disabled = false;
-    btn.textContent = "Cari";
+    btn.textContent = "[ Execute ]";
   }
 });
 
 $("jsonBtn").addEventListener("click", () => {
-  $("error").textContent = "";
+  $("log").innerHTML = "";
   const raw = $("jsonInput").value.trim();
   if (!raw) return;
+  let obj;
   try {
-    showResult(JSON.parse(raw), cleanPlate($("plate").value));
+    obj = JSON.parse(raw);
   } catch (err) {
-    $("error").textContent = "JSON tidak sah: " + err.message;
+    log("ERR: JSON tidak sah — " + err.message, "err");
+    return;
   }
+  log("> JSON dimuatkan.", "ok");
+  showResult(obj, cleanPlate($("plate").value));
 });
 
 $("clearBtn").addEventListener("click", () => {
   $("plate").value = "";
   $("jsonInput").value = "";
-  $("error").textContent = "";
-  $("result").hidden = true;
+  $("log").innerHTML = "";
+  $("resultTerm").hidden = true;
   $("plate").focus();
 });
+
+
+// =====================================================================
+// 6. KESAN VISUAL — jam & hujan matrix (boleh buang jika tak mahu)
+// =====================================================================
+setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("en-GB") + " MYT"; }, 1000);
+
+(function matrixRain() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const canvas = $("matrix");
+  const ctx = canvas.getContext("2d");
+  const chars = "アイウエオカキクケコサシスセソ0123456789ABCDEF<>/$#";
+  const size = 16;
+  let drops = [];
+
+  function resize() {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    drops = Array(Math.ceil(canvas.width / size)).fill(0).map(() => Math.random() * -50);
+  }
+  resize();
+  addEventListener("resize", resize);
+
+  setInterval(() => {
+    ctx.fillStyle = "rgba(3, 8, 6, 0.12)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#00ff9c";
+    ctx.font = size + "px monospace";
+    drops.forEach((y, i) => {
+      ctx.fillText(chars[Math.floor(Math.random() * chars.length)], i * size, y * size);
+      drops[i] = y * size > canvas.height && Math.random() > 0.975 ? 0 : y + 1;
+    });
+  }, 55);
+})();
 </script>
 </body>
 </html>
