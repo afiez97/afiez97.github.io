@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Semakan Kompaun</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card: #ffffff;
+    --text: #1a1d23;
+    --muted: #6b7280;
+    --border: #e2e5ea;
+    --ok: #16a34a;
+    --ok-bg: #ecfdf3;
+    --fail: #dc2626;
+    --fail-bg: #fef2f2;
+    --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --card: #1d2026;
+      --text: #e8eaed;
+      --muted: #9aa0a8;
+      --border: #2c2f36;
+      --ok: #4ade80;
+      --ok-bg: #103822;
+      --fail: #f87171;
+      --fail-bg: #3a1616;
+      --accent: #60a5fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    line-height: 1.4;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 0.9rem; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* Borang carian: sebaris di PC, bertindan di telefon */
+  .search { display: flex; gap: 8px; }
+  .search input {
+    flex: 1;
+    min-width: 0;
+    padding: 14px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button {
+    padding: 14px 20px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button:disabled { opacity: 0.6; cursor: wait; }
+  button.secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+
+  .error { color: var(--fail); font-size: 0.9rem; margin-top: 10px; }
+  .error:empty { display: none; }
+
+  details { margin-top: 16px; }
+  summary { cursor: pointer; font-size: 0.85rem; color: var(--muted); }
+  textarea {
+    width: 100%;
+    min-height: 150px;
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    font: 0.85rem ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    resize: vertical;
+  }
+
+  /* Keputusan */
+  .banner { padding: 12px 14px; border-radius: 10px; font-weight: 600; margin-bottom: 14px; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.fail { background: var(--fail-bg); color: var(--fail); }
+  .section-title { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 18px 0 8px; }
+  .record { border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-top: 10px; }
+  .record h3 { margin: 0 0 10px; font-size: 0.9rem; color: var(--accent); }
+  dl { display: grid; grid-template-columns: 160px 1fr; gap: 8px 12px; margin: 0; font-size: 0.92rem; }
+  dt { color: var(--muted); }
+  dd { margin: 0; word-break: break-word; }
+  pre {
+    margin: 0;
+    padding: 10px;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  @media (max-width: 520px) {
+    .search { flex-direction: column; }
+    button { width: 100%; }
+    dl { grid-template-columns: 1fr; gap: 0; }
+    dt { margin-top: 10px; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+    dt:first-child { margin-top: 0; }
+    dd { font-size: 1rem; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Semakan Kompaun</h1>
+  <p class="sub">Masukkan no. plat dan tekan Cari.</p>
+
+  <div class="card">
+    <form class="search" id="searchForm">
+      <input id="plate" placeholder="Contoh: DEK38" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="No. Plat">
+      <button type="submit" id="searchBtn">Cari</button>
+      <button type="button" class="secondary" id="clearBtn">Kosongkan</button>
+    </form>
+    <div class="error" id="error"></div>
+
+    <details>
+      <summary>Tampal JSON secara manual</summary>
+      <textarea id="jsonInput" placeholder='{"success": true, "status": 200, "data": [...]}'></textarea>
+      <button type="button" id="jsonBtn">Papar</button>
+    </details>
+  </div>
+
+  <div class="card" id="result" hidden></div>
+</div>
+
+<script>
+// =====================================================================
+// 1. CONFIG — ubah nilai di sini sahaja
+// =====================================================================
+const CONFIG = {
+  baseUrl:     "https://ovrs.com.my:8888",
+  tokenPath:   "/token",
+  enquiryPath: "/api/enquiry",
+  agencyCode:  "MBJB",
+  username:    "mbjb",
+  password:    "mbjb@01082021",
+  compoundRef: "XX",
+};
+
+
+// =====================================================================
+// 2. API — semua panggilan ke Drosstech ada di bahagian ini
+// =====================================================================
+let token = null; // disimpan selepas login pertama
+
+// Login dan dapatkan access token
+async function getToken() {
+  if (token) return token;
+
+  const res = await fetch(CONFIG.baseUrl + CONFIG.tokenPath, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "password",
+      username: CONFIG.username,
+      password: CONFIG.password,
+    }),
+  });
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok || !json?.access_token) {
+    throw new Error("Gagal login token Drosstech (HTTP " + res.status + ")");
+  }
+  token = json.access_token;
+  return token;
+}
+
+// Cari kompaun ikut no. plat
+async function cariKompaun(plate) {
+  const request = {
+    AgencyCode: CONFIG.agencyCode,
+    RegistrationNo: plate,
+    OffenceDate: today(),
+    CompoundReferenceNo: CONFIG.compoundRef,
+  };
+
+  const res = await fetch(CONFIG.baseUrl + CONFIG.enquiryPath + "?" + new URLSearchParams(request), {
+    headers: { Authorization: "Bearer " + (await getToken()) },
+  });
+  const data = await res.json().catch(() => null);
+
+  if (res.status === 401) token = null; // token tamat, login semula pada carian seterusnya
+
+  return {
+    success: res.ok,
+    status: res.status,
+    message: res.ok ? "Drosstech OK" : "Drosstech enquiry gagal",
+    request,
+    data,
+  };
+}
+
+
+// =====================================================================
+// 3. HELPER
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+
+// "dek 38" -> "DEK38"
+function cleanPlate(value) {
+  return String(value || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+}
+
+// Tarikh hari ini dalam format YYYY-MM-DD
+function today() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// "OffenceDate" / "offence_date" -> "Offence Date"
+function label(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// Bina <dl> daripada objek { label: nilai }; nilai kosong diabaikan
+function fieldList(obj) {
+  const dl = document.createElement("dl");
+  for (const [key, val] of Object.entries(obj)) {
+    if (val === null || val === undefined || val === "") continue;
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = key;
+    dd.textContent = typeof val === "object" ? JSON.stringify(val) : val;
+    dl.append(dt, dd);
+  }
+  return dl;
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) node.textContent = text;
+  return node;
+}
+
+
+// =====================================================================
+// 4. PAPARAN KEPUTUSAN
+// =====================================================================
+function showResult(obj, plate) {
+  const box = $("result");
+  box.innerHTML = "";
+
+  // Banner berjaya / gagal
+  const ok = obj.success === true;
+  box.append(el("div", "banner " + (ok ? "ok" : "fail"),
+    (ok ? "✓ Berjaya" : "✕ Gagal") + (obj.message ? " — " + obj.message : "")));
+
+  // Ringkasan
+  box.append(fieldList({
+    "Status": obj.status,
+    "No. Plat": plate || obj.request?.RegistrationNo,
+    "Tarikh Kesalahan": obj.request?.OffenceDate,
+    "Kod Agensi": obj.request?.AgencyCode,
+    "Ralat": obj.error,
+  }));
+
+  // Data rekod
+  const data = obj.data;
+  if (data !== null && data !== undefined) {
+    box.append(el("div", "section-title", "Data"));
+
+    let records = Array.isArray(data) ? data : Array.isArray(data.records) ? data.records : null;
+
+    // Jika API pulangkan banyak plat, tapis ikut plat yang dicari
+    if (records && plate) {
+      const match = records.filter((r) =>
+        Object.keys(r || {}).some((k) => /plat|registration/i.test(k) && cleanPlate(r[k]) === plate));
+      if (match.length) records = match;
+    }
+
+    if (records && records.length && typeof records[0] === "object") {
+      records.forEach((rec, i) => {
+        const card = el("div", "record");
+        if (records.length > 1) card.append(el("h3", "", "Rekod " + (i + 1)));
+        const fields = {};
+        for (const key in rec) fields[label(key)] = rec[key];
+        card.append(fieldList(fields));
+        box.append(card);
+      });
+    } else {
+      box.append(el("pre", "", JSON.stringify(data, null, 2)));
+    }
+  }
+
+  box.hidden = false;
+  box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+
+// =====================================================================
+// 5. BUTANG / EVENT
+// =====================================================================
+$("searchForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("error").textContent = "";
+
+  const plate = cleanPlate($("plate").value);
+  if (!plate) {
+    $("error").textContent = "Sila masukkan no. plat.";
+    return;
+  }
+
+  const btn = $("searchBtn");
+  btn.disabled = true;
+  btn.textContent = "Mencari...";
+  try {
+    showResult(await cariKompaun(plate), plate);
+  } catch (err) {
+    $("result").hidden = true;
+    $("error").textContent = "Gagal hubungi Drosstech: " + err.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Cari";
+  }
+});
+
+$("jsonBtn").addEventListener("click", () => {
+  $("error").textContent = "";
+  const raw = $("jsonInput").value.trim();
+  if (!raw) return;
+  try {
+    showResult(JSON.parse(raw), cleanPlate($("plate").value));
+  } catch (err) {
+    $("error").textContent = "JSON tidak sah: " + err.message;
+  }
+});
+
+$("clearBtn").addEventListener("click", () => {
+  $("plate").value = "";
+  $("jsonInput").value = "";
+  $("error").textContent = "";
+  $("result").hidden = true;
+  $("plate").focus();
+});
+</script>
+</body>
+</html>
