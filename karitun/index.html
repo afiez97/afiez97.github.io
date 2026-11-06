@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+<!-- Tesseract.js: OCR dalam browser untuk baca no. plat dari kamera/gambar -->
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js" defer></script>
 <style>
   :root {
     --bg: #030806;
@@ -136,6 +138,53 @@
   button.ghost { background: transparent; color: var(--muted); border-color: #1f5a42; }
   button.ghost:hover { color: var(--green); border-color: var(--green); background: transparent; box-shadow: none; }
 
+  /* Butang kamera / gambar */
+  .scan-actions { display: flex; gap: 10px; margin-top: 10px; }
+  button.cyan { color: var(--cyan); border-color: var(--cyan); background: rgba(59,232,255,0.08); }
+  button.cyan:hover { background: var(--cyan); color: var(--bg); box-shadow: 0 0 18px rgba(59,232,255,0.6); }
+
+  /* Panel kamera live */
+  .camera { margin-top: 16px; }
+  .viewport {
+    position: relative;
+    max-width: 640px;
+    border: 1px solid var(--cyan);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    line-height: 0;
+  }
+  .viewport video { width: 100%; display: block; filter: saturate(0.6) contrast(1.1); }
+  /* Kotak sasaran: plat mesti berada dalam kotak ini (kedudukan sama dengan CROP dalam JS) */
+  .target {
+    position: absolute;
+    left: 10%; top: 32%; width: 80%; height: 36%;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+    border: 1px dashed rgba(59,232,255,0.5);
+  }
+  .target::before, .target::after {
+    content: ""; position: absolute; width: 22px; height: 22px;
+    border: 3px solid var(--cyan);
+  }
+  .target::before { left: -3px; top: -3px; border-right: 0; border-bottom: 0; }
+  .target::after  { right: -3px; bottom: -3px; border-left: 0; border-top: 0; }
+  .target i {
+    position: absolute; left: 0; right: 0; height: 2px;
+    background: var(--cyan); box-shadow: 0 0 12px var(--cyan);
+    animation: sweep 1.6s ease-in-out infinite alternate;
+  }
+  .target.locked { border-color: var(--green); }
+  .target.locked i { background: var(--green); box-shadow: 0 0 16px var(--green); animation: none; top: 50%; }
+  .hud {
+    position: absolute; left: 10px; right: 10px; bottom: 10px;
+    display: flex; justify-content: space-between; gap: 10px;
+    font: 600 11px/1.3 var(--font); letter-spacing: 0.1em; color: var(--cyan);
+    text-shadow: 0 0 6px #000;
+  }
+  .hud b { color: #fff; font-size: 13px; }
+  .camera .actions { margin-top: 10px; }
+  .preview { margin-top: 10px; max-width: 100%; max-height: 220px; border: 1px solid #1f5a42; border-radius: 6px; display: block; }
+
   /* Log terminal */
   #log { margin-top: 16px; font-size: 12.5px; }
   #log:empty { display: none; }
@@ -192,6 +241,7 @@
   @keyframes blink  { 50% { opacity: 0; } }
   @keyframes pulse  { 50% { opacity: 0.35; } }
   @keyframes appear { from { opacity: 0; transform: translateX(-6px); } }
+  @keyframes sweep  { from { top: 0; } to { top: calc(100% - 2px); } }
   @keyframes glitch {
     0%, 88%, 100% { transform: translate(0); opacity: 0; }
     90% { transform: translate(-3px, 1px); opacity: 0.9; }
@@ -210,6 +260,7 @@
     .field { min-width: 100%; }
     .actions { flex-direction: column; }
     button { width: 100%; padding: 14px; }
+    .scan-actions button { padding: 14px 6px; letter-spacing: 0.06em; }
     dl { grid-template-columns: 1fr; gap: 0; }
     dt { margin-top: 10px; font-size: 11px; letter-spacing: 0.06em; }
     dt:first-child { margin-top: 0; }
@@ -244,7 +295,25 @@
           <button type="submit" id="searchBtn">[ Execute ]</button>
           <button type="button" class="ghost" id="clearBtn">[ Clear ]</button>
         </div>
+        <div class="scan-actions">
+          <button type="button" class="cyan" id="liveBtn">[ ◉ Live Scan ]</button>
+          <button type="button" class="cyan" id="photoBtn">[ ▣ Gambar ]</button>
+        </div>
+        <!-- Di telefon: buka kamera terus. Di PC: pilih fail gambar -->
+        <input type="file" id="photoInput" accept="image/*" capture="environment" hidden>
       </form>
+
+      <!-- Kamera live: OCR berjalan berterusan sehingga plat dikesan -->
+      <div class="camera" id="camera" hidden>
+        <div class="viewport">
+          <video id="video" playsinline muted></video>
+          <div class="target" id="target"><i></i></div>
+          <div class="hud"><span>OCR: <b id="ocrText">...</b></span><span id="ocrStatus">INIT</span></div>
+        </div>
+        <div class="actions">
+          <button type="button" class="ghost" id="stopBtn">[ ■ Stop ]</button>
+        </div>
+      </div>
 
       <div id="log"></div>
 
@@ -438,16 +507,20 @@ function showResult(obj, plate) {
 // =====================================================================
 // 5. BUTANG / EVENT
 // =====================================================================
-$("searchForm").addEventListener("submit", async (e) => {
+$("searchForm").addEventListener("submit", (e) => {
   e.preventDefault();
   $("log").innerHTML = "";
-  $("resultTerm").hidden = true;
+  search(cleanPlate($("plate").value));
+});
 
-  const plate = cleanPlate($("plate").value);
+// Jalankan carian + tulis log. Dipanggil oleh butang Execute dan oleh kamera/gambar.
+async function search(plate) {
+  $("resultTerm").hidden = true;
   if (!plate) {
     log("ERR: no. plat kosong. sila masukkan no. plat.", "err");
     return;
   }
+  $("plate").value = plate;
 
   const btn = $("searchBtn");
   btn.disabled = true;
@@ -469,7 +542,7 @@ $("searchForm").addEventListener("submit", async (e) => {
     btn.disabled = false;
     btn.textContent = "[ Execute ]";
   }
-});
+}
 
 $("jsonBtn").addEventListener("click", () => {
   $("log").innerHTML = "";
@@ -487,6 +560,7 @@ $("jsonBtn").addEventListener("click", () => {
 });
 
 $("clearBtn").addEventListener("click", () => {
+  stopLive();
   $("plate").value = "";
   $("jsonInput").value = "";
   $("log").innerHTML = "";
@@ -495,8 +569,187 @@ $("clearBtn").addEventListener("click", () => {
 });
 
 
+$("liveBtn").addEventListener("click", startLive);
+$("stopBtn").addEventListener("click", stopLive);
+$("photoBtn").addEventListener("click", () => $("photoInput").click());
+$("photoInput").addEventListener("change", () => {
+  const file = $("photoInput").files[0];
+  $("photoInput").value = ""; // supaya gambar sama boleh dipilih semula
+  if (file) scanPhoto(file);
+});
+
+
 // =====================================================================
-// 6. KESAN VISUAL — jam & hujan matrix (boleh buang jika tak mahu)
+// 6. KAMERA & OCR — baca no. plat dari kamera live atau gambar
+// =====================================================================
+// Kawasan kotak sasaran (peratus video). Mesti sama dengan .target dalam CSS.
+const CROP = { x: 0.10, y: 0.32, w: 0.80, h: 0.36 };
+const FULL = { x: 0, y: 0, w: 1, h: 1 };
+
+// Corak plat Malaysia: 1-3 huruf + 1-4 nombor + 0-1 huruf (cth: JHK 1234, W 1234 A, DEK 38)
+// \b = mesti perkataan penuh, supaya "SALE 50" tidak dibaca sebagai "ALE50"
+const PLATE_RE = /\b[A-Z]{1,3} ?[0-9]{1,4}(?: ?[A-Z])?\b/g;
+
+let ocr = null;    // worker Tesseract (dimuat sekali sahaja)
+let stream = null; // stream kamera live
+
+// Muat enjin OCR. Kali pertama ambil beberapa saat (muat turun ~3MB).
+function getOcr() {
+  if (!ocr) {
+    ocr = (async () => {
+      if (!window.Tesseract) throw new Error("enjin OCR gagal dimuat (semak internet)");
+      log("> memuat enjin OCR ...");
+      const worker = await Tesseract.createWorker("eng");
+      await worker.setParameters({
+        tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ",
+        tessedit_pageseg_mode: "11", // cari teks di mana-mana dalam gambar
+        thresholding_method: "2",    // Sauvola: tahan bayang-bayang & plat hitam/putih
+      });
+      log("  enjin OCR ............. OK", "ok");
+      return worker;
+    })();
+    ocr.catch(() => { ocr = null; }); // jika gagal, cuba semula lain kali
+  }
+  return ocr;
+}
+
+// Cari no. plat dalam teks OCR (pilih yang paling panjang)
+function findPlate(text) {
+  const lines = text.toUpperCase().split("\n");
+  const pick = (list) => list
+    .flatMap((l) => l.match(PLATE_RE) || [])
+    .map((p) => p.replace(/ /g, ""))
+    .filter((p) => p.length >= 3)
+    .sort((a, b) => b.length - a.length)[0];
+  // Cuba setiap baris dulu; jika tiada, gabung baris (plat motosikal 2 baris),
+  // sekali dengan & sekali tanpa baris 1 huruf (selalunya hingar dari bingkai plat)
+  const joined = [lines.join(" "), lines.filter((l) => l.trim().length > 1).join(" ")];
+  return pick(lines) || pick(joined) || null;
+}
+
+// Potong kawasan gambar. Gambar hanya dikecilkan jika melebihi 4096px:
+// resolusi penuh lebih perlahan tapi jauh lebih tepat untuk plat yang kecil dalam gambar.
+function crop(source, width, height, area) {
+  const sw = width * area.w, sh = height * area.h;
+  const scale = Math.min(1, 4096 / sw);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(sw * scale);
+  canvas.height = Math.round(sh * scale);
+  canvas.getContext("2d").drawImage(source, width * area.x, height * area.y, sw, sh, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+// OCR satu gambar → no. plat atau null
+async function readPlate(canvas) {
+  const worker = await getOcr();
+  const { data } = await worker.recognize(canvas);
+  return findPlate(data.text);
+}
+
+// --- Mod 1: kamera live, scan berterusan sehingga plat sama dibaca 2 kali berturut-turut
+async function startLive() {
+  if (stream) return;
+  $("log").innerHTML = "";
+  $("resultTerm").hidden = true;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    log("ERR: kamera tidak disokong (perlu HTTPS / browser moden).", "err");
+    return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch (err) {
+    log("ERR: kamera tidak dapat dibuka — " + err.message, "err");
+    return;
+  }
+
+  const myStream = stream;
+  const video = $("video");
+  video.srcObject = stream;
+  await video.play();
+  $("camera").hidden = false;
+  $("target").classList.remove("locked");
+  $("ocrText").textContent = "...";
+  $("ocrStatus").textContent = "LOADING";
+  $("camera").scrollIntoView({ behavior: "smooth", block: "center" });
+
+  try {
+    await getOcr();
+  } catch (err) {
+    log("ERR: " + err.message, "err");
+    stopLive();
+    return;
+  }
+
+  log("> halakan kamera ke plat dalam kotak ...");
+  let last = null;
+  while (stream === myStream) {
+    $("ocrStatus").textContent = "SCANNING";
+    const plate = await readPlate(crop(video, video.videoWidth, video.videoHeight, CROP));
+    if (stream !== myStream) break; // pengguna tekan Stop
+
+    $("ocrText").textContent = plate || "...";
+    if (plate && plate === last) {
+      $("ocrStatus").textContent = "LOCKED";
+      $("target").classList.add("locked");
+      log("  plat dikesan .......... " + plate, "ok");
+      await sleep(600);
+      stopLive();
+      search(plate);
+      break;
+    }
+    last = plate;
+  }
+}
+
+function stopLive() {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  stream = null;
+  $("video").srcObject = null;
+  $("camera").hidden = true;
+}
+
+// --- Mod 2: ambil gambar / pilih fail, OCR sekali
+async function scanPhoto(file) {
+  stopLive();
+  $("log").innerHTML = "";
+  $("resultTerm").hidden = true;
+
+  const img = new Image();
+  img.src = URL.createObjectURL(file);
+  try {
+    await img.decode();
+  } catch {
+    log("ERR: fail gambar tidak sah.", "err");
+    return;
+  }
+  img.className = "preview";
+  $("log").append(img);
+
+  const btn = $("photoBtn");
+  btn.disabled = true;
+  try {
+    log("> menganalisis gambar ...");
+    const plate = await readPlate(crop(img, img.naturalWidth, img.naturalHeight, FULL));
+    if (!plate) {
+      log("ERR: plat tidak dikesan. cuba ambil gambar lebih dekat & terang, atau taip manual.", "err");
+      return;
+    }
+    log("  plat dikesan .......... " + plate, "ok");
+    search(plate);
+  } catch (err) {
+    log("ERR: " + err.message, "err");
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+
+// =====================================================================
+// 7. KESAN VISUAL — jam & hujan matrix (boleh buang jika tak mahu)
 // =====================================================================
 setInterval(() => { $("clock").textContent = new Date().toLocaleTimeString("en-GB") + " MYT"; }, 1000);
 
